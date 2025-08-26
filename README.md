@@ -4,7 +4,7 @@ An AI-powered web application for school administration and learning management,
 
 ## Tech Stack
 - Next.js 15 (App Router, Middleware)
-- React 19
+- React 18.3.1
 - TypeScript 5
 - Tailwind CSS 4
 - Radix UI + shadcn-inspired components
