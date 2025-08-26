@@ -40,11 +40,7 @@ export default function NotFound() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <Header>
-        <Button asChild>
-          <Link href="/get-started">Get Started</Link>
-        </Button>
-      </Header>
+      <Header />
 
       <main className="flex-1">
         {/* Hero Section */}

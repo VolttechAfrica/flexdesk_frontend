@@ -16,10 +16,10 @@ interface Plan {
 
 interface PricingCardProps {
   plan: Plan
-  selected: boolean
+  selected?: boolean
 }
 
-export function PricingCard({ plan, selected }: PricingCardProps) {
+export function PricingCard({ plan, selected = false }: PricingCardProps) {
   return (
     <Card
       className={`relative overflow-hidden flex flex-col ${plan.popular ? "ring-2 ring-blue-500 shadow-xl scale-105" : "shadow-lg"}`}
