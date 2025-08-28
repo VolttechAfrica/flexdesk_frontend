@@ -23,8 +23,8 @@ const getApiConfig = () => {
   } as const
 }
 
-// Check if we're in development mode (client-safe)
-const isDevelopment = typeof window !== "undefined" && window.location.hostname === "localhost"
+// Refresh endpoint path (joined with baseURL by axios)
+const REFRESH_ENDPOINT_PATH = "/auth/token/refresh"
 
 // Custom error class for API errors
 export class ApiClientError extends Error {
@@ -103,20 +103,54 @@ class ApiClient {
     // Add timestamp
     config.headers["X-Request-Timestamp"] = new Date().toISOString()
 
+    // Determine if this is a public route that doesn't need authentication
+    const isPublicRoute = this.isPublicRoute(config.url)
+    const isRefreshRequest = this.isRefreshUrl(config.url)
+
+    // Only attach access token for authenticated routes
+    if (!isPublicRoute) {
+      const accessToken = this.getAccessToken()
+      if (accessToken) {
+        config.headers.Authorization = `Bearer ${accessToken}`
+      }
+    }
+
+    // For refresh requests, also attach refresh token in X-Refresh-Token header
+    if (isRefreshRequest) {
+      const refreshToken = this.getRefreshToken()
+      if (refreshToken) {
+        config.headers["X-Refresh-Token"] = refreshToken
+      }
+    }
+
     // Add CSRF token if available
     const csrfToken = this.getCsrfToken()
     if (csrfToken) {
       config.headers["X-CSRF-Token"] = csrfToken
     }
 
-    // Log request using structured logging
+    // Log request using structured logging (sanitize sensitive data)
+    const sanitizedHeaders = { ...config.headers }
+    if (sanitizedHeaders.Authorization) {
+      sanitizedHeaders.Authorization = 'Bearer ***'
+    }
+    if (sanitizedHeaders['X-Refresh-Token']) {
+      sanitizedHeaders['X-Refresh-Token'] = '***'
+    }
+
+    // Sanitize request data for logging (especially for login requests)
+    let sanitizedData = config.data
+    if (config.url?.includes('/auth/login') && config.data) {
+      sanitizedData = { email: '***', password: '***' }
+    }
+
     log.api.request(
       config.method?.toUpperCase() || 'UNKNOWN',
       config.url || 'unknown',
       requestId,
       {
-        headers: config.headers,
-        data: config.data,
+        headers: sanitizedHeaders,
+        data: sanitizedData,
       }
     )
 
@@ -129,20 +163,12 @@ class ApiClient {
   }
 
   private responseInterceptor: ResponseInterceptor = (response) => {
-    // Log response using structured logging
-    log.api.response(
-      response.status,
-      response.config.url || 'unknown',
-      response.config.headers?.["X-Request-ID"] as string || 'unknown',
-      response.data
-    )
-
     return response
   }
 
   private responseErrorInterceptor: ErrorInterceptor = async (error) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean; _retryCount?: number }
-
+  
     // Handle network errors
     if (!error.response) {
       const networkError = new ApiClientError(
@@ -161,11 +187,11 @@ class ApiClient {
 
     // Handle authentication errors (401/403) with token refresh
     if (status === 401 || status === 403) {
-      if (originalRequest && !originalRequest._retry) {
+      if (originalRequest && !originalRequest._retry && !this.isRefreshUrl(originalRequest.url)) {
         originalRequest._retry = true
         
         try {
-          // Try to refresh the token
+          // Try to refresh the token (sends both access and refresh tokens via headers)
           const newToken = await this.refreshAuthToken()
           if (newToken) {
             // Update the original request with new token
@@ -304,18 +330,55 @@ class ApiClient {
     return token || null
   }
 
-  // Token management methods - these should be handled server-side in production
-  private getAuthToken(): string | null {
-    // In production, tokens should be handled via httpOnly cookies
-    // This is a fallback for development
+  // Access and refresh token helpers (client-side fallback)
+  private getAccessToken(): string | null {
     if (typeof window === "undefined") return null
-    
     const token = document.cookie
       .split("; ")
-      .find(row => row.startsWith("token="))
+      .find(row => row.startsWith("access_token="))
       ?.split("=")[1]
-    
     return token || null
+  }
+
+  private getRefreshToken(): string | null {
+    if (typeof window === "undefined") return null
+    const token = document.cookie
+      .split("; ")
+      .find(row => row.startsWith("refresh_token="))
+      ?.split("=")[1]
+    return token || null
+  }
+
+  private isRefreshUrl(url?: string): boolean {
+    if (!url) return false
+    try {
+      // Axios may pass relative URLs ("/auth/token/refresh") or full URLs
+      return url.endsWith(REFRESH_ENDPOINT_PATH) || new URL(url, window.location.origin).pathname.endsWith(REFRESH_ENDPOINT_PATH)
+    } catch {
+      return url.endsWith(REFRESH_ENDPOINT_PATH)
+    }
+  }
+
+  private isPublicRoute(url?: string): boolean {
+    if (!url) return false
+    
+    const publicRoutes = [
+      '/auth/login',
+      '/auth/register',
+      '/auth/forgot-password',
+      '/auth/reset-password',
+      '/health',
+      '/api/health'
+    ]
+    
+    try {
+      // Check if URL matches any public route
+      const pathname = url.startsWith('http') ? new URL(url).pathname : url
+      return publicRoutes.some(route => pathname.startsWith(route))
+    } catch {
+      // Fallback to simple string matching
+      return publicRoutes.some(route => url.startsWith(route))
+    }
   }
 
   private async refreshAuthToken(): Promise<string | null> {
@@ -329,25 +392,27 @@ class ApiClient {
     this.isRefreshing = true
 
     try {
-      const token = this.getAuthToken()
-      if (!token) {
-        throw new Error("No token to refresh")
+      const accessToken = this.getAccessToken()
+      const refreshToken = this.getRefreshToken()
+      if (!accessToken || !refreshToken) {
+        throw new Error("Missing tokens for refresh")
       }
 
       // Import auth service dynamically to avoid circular dependency
       const { authService } = await import("@/lib/services/auth")
-      await authService.refreshToken({ token })
+      // The interceptor will attach Authorization and X-Refresh-Token headers
+      await authService.refreshToken({ token: accessToken })
       
-      const newToken = this.getAuthToken()
+      const newAccessToken = this.getAccessToken()
       
       // Process queued requests
       this.failedQueue.forEach(({ resolve }) => {
-        resolve(newToken as any)
+        resolve(newAccessToken as any)
       })
       this.failedQueue = []
       
       log.info('Token refreshed successfully', { action: 'token_refresh_success' })
-      return newToken
+      return newAccessToken
     } catch (error) {
       // Process queued requests with error
       this.failedQueue.forEach(({ reject }) => {
@@ -365,15 +430,16 @@ class ApiClient {
   private handleAuthFailure(): void {
     // Clear token and redirect to login
     if (typeof window !== "undefined") {
-      // Clear token cookie
-      document.cookie = "token=; path=/; max-age=0; secure; samesite=strict"
+      // Clear token cookies
+      document.cookie = "access_token=; path=/; max-age=0; secure; samesite=strict"
+      document.cookie = "refresh_token=; path=/; max-age=0; secure; samesite=strict"
       
       log.warn('Authentication failed, redirecting to login', { action: 'auth_failure_redirect' })
       
       // Redirect to login page
-      if (window.location.pathname !== "/login") {
-        window.location.href = "/login"
-      }
+      // if (window.location.pathname !== "/login") {
+      //   window.location.href = "/login"
+      // }
     }
   }
 

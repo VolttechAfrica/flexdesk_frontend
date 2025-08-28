@@ -9,8 +9,7 @@ import { PersonalInfoStep } from "@/components/pages/onboarding/staffs/personal-
 import { ProfessionalInfoStep } from "@/components/pages/onboarding/staffs/professional-info-step"
 import { AdditionalInfoStep } from "@/components/pages/onboarding/staffs/additional-info-step"
 import { ReviewSubmitStep } from "@/components/pages/onboarding/staffs/review-submit-step"
-import { ProtectedRoute } from "@/components/auth/protected-route"
-import { Rocket, User, GraduationCap, Shield, CheckCircle, LogOut, Settings } from "lucide-react"
+import { Rocket, User, GraduationCap, Shield, CheckCircle } from "lucide-react"
 import type { StaffOnboardingData } from "@/lib/types/staff-onboarding"
 import { STAFF_ONBOARDING_STEPS } from "@/lib/types/staff-onboarding"
 import { toast } from "@/hooks/use-toast"
@@ -143,7 +142,7 @@ export default function GetStartedPage() {
   }, [currentStep, formData, updatePersonalInfo, updateProfessionalInfo, updateAdditionalInfo, handleNext, handleBack, handleSubmit])
 
   return (
-    <ProtectedRoute>
+  
       <div className="min-h-screen bg-white">
         <OnboardingHeader user={user as any} logout={logout} />
 
@@ -175,6 +174,5 @@ export default function GetStartedPage() {
 
         <OnboardingFooter />
       </div>
-    </ProtectedRoute>
   )
 }
