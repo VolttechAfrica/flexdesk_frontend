@@ -1,16 +1,5 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
-  "/about/page": "app/about/page.js",
-  "/features/page": "app/features/page.js",
-  "/get-started/page": "app/get-started/page.js",
-  "/login/page": "app/login/page.js",
-  "/page": "app/page.js",
-  "/privacy/page": "app/privacy/page.js",
-  "/solutions/administrators/page": "app/solutions/administrators/page.js",
-  "/solutions/parents/page": "app/solutions/parents/page.js",
-  "/solutions/teachers/page": "app/solutions/teachers/page.js",
-  "/support/page": "app/support/page.js",
-  "/terms/page": "app/terms/page.js",
   "/(protectedRoute)/onboarding/page": "app/(protectedRoute)/onboarding/page.js",
-  "/(protectedRoute)/(dashboards)/admin/dashboard/page": "app/(protectedRoute)/(dashboards)/admin/dashboard/page.js"
+  "/_not-found/page": "app/_not-found/page.js",
+  "/login/page": "app/login/page.js"
 }

@@ -90,7 +90,8 @@ export interface LoginRequest {
   export interface LoginResponse {
     status: boolean
     message: string
-    token: string
+    accessToken: string
+    refreshToken: string
     userType: "staff" | "parent" | "student" | "bursar" 
     permissions: string[]
     data: {

@@ -29,11 +29,11 @@ class AuthService {
       if (!status) {
         throw new Error(message || "Login failed")
       }
-      // Store user info in localStorage (non-sensitive data only)
+      log.info("Login successful", { userId: data.user?.id, action: 'login_success' })
       this.setAuthUser(data.user)
-      // This is a fallback for development
       if (typeof window !== "undefined") {
-        this.setAuthTokenFallback(data.token)
+        this.setAccessTokenFallback(data.accessToken)
+        this.setRefreshTokenFallback(data.refreshToken)
       }
 
       return data
@@ -65,14 +65,13 @@ class AuthService {
       if (!token) throw new Error("Token is required")
       const userId = this.getAuthUser()?.id
       if (!userId) throw new Error("User ID is required")
-      const response = await apiClient.post<{ status: boolean, token: string }>(this.endPoints().REFRESH_TOKEN, { token, userId })
+      const response = await apiClient.post<{ status: boolean, token: string }>(this.endPoints().REFRESH_TOKEN)
       
       const { data: { token: newToken, status } } = response
       if (!status) throw new Error("Authentication error, login again");
       
-      // Update token in fallback storage (development only)
       if (typeof window !== "undefined") {
-        this.setAuthTokenFallback(newToken)
+        this.setAccessTokenFallback(newToken)
       }
 
       log.auth('Token refresh successful', userId)
@@ -86,7 +85,7 @@ class AuthService {
   }
 
   // Development fallback token storage - REMOVE IN PRODUCTION
-  private setAuthTokenFallback(token: string): void {
+  private setRefreshTokenFallback(token: string): void {
     if (!isDevelopment()) {
       log.warn("Client-side token storage should not be used in production", { action: 'security_warning' })
       return
@@ -99,7 +98,26 @@ class AuthService {
         const secureAttr = isHttps ? "secure; " : ""
         // Use lax in dev to avoid CSRF issues with redirects; strict in prod
         const sameSite = isHttps ? "strict" : "lax"
-        document.cookie = `token=${token}; path=/; max-age=3600; ${secureAttr}samesite=${sameSite}`
+        document.cookie = `refresh_token=${token}; path=/; max-age=604800; ${secureAttr}samesite=${sameSite}`
+      }
+    } catch (error) {
+      throw new Error(error as string)
+    }
+  }
+
+  private setAccessTokenFallback(token: string): void {
+    if (!isDevelopment()) {
+      log.warn("Client-side token storage should not be used in production", { action: 'security_warning' })
+      return
+    }
+
+    try {
+      if (!token) throw new Error("Token is required")
+      if (typeof window !== "undefined") {
+        const isHttps = window.location.protocol === "https:"
+        const secureAttr = isHttps ? "secure; " : ""
+        const sameSite = isHttps ? "strict" : "lax"
+        document.cookie = `access_token=${token}; path=/; max-age=3600; ${secureAttr}samesite=${sameSite}`
       }
     } catch (error) {
       throw new Error(error as string)
@@ -118,6 +136,8 @@ class AuthService {
         userType: user.userType,
         profile: user?.profile,
         school: user?.school,
+        assignedClasses: user?.assignedClasses,
+        assignedSubjects: user?.assignedSubjects,
       }
       localStorage.setItem("user", JSON.stringify(safeUserData))
     }
@@ -143,11 +163,12 @@ class AuthService {
       // Clear user data
       localStorage.removeItem("user")
       
-      // Clear fallback token cookie
+      // Clear fallback token cookies
       const isHttps = window.location.protocol === "https:"
       const secureAttr = isHttps ? "secure; " : ""
       const sameSite = isHttps ? "strict" : "lax"
-      document.cookie = `token=; path=/; max-age=0; ${secureAttr}samesite=${sameSite}`
+      document.cookie = `access_token=; path=/; max-age=0; ${secureAttr}samesite=${sameSite}`
+      document.cookie = `refresh_token=; path=/; max-age=0; ${secureAttr}samesite=${sameSite}`
       
       log.info('Auth data cleared', { action: 'auth_data_clear' })
     }
@@ -162,7 +183,7 @@ class AuthService {
     
     const token = document.cookie
       .split("; ")
-      .find(row => row.startsWith("token="))
+      .find(row => row.startsWith("access_token="))
       ?.split("=")[1]
     
     return token || null
@@ -252,7 +273,9 @@ function isDevelopment(): boolean {
   return typeof window !== "undefined" && 
          (window.location.hostname === "localhost" || 
           window.location.hostname === "127.0.0.1" ||
-          window.location.hostname.includes("localhost"))
+          window.location.hostname.includes("localhost") ||
+          window.location.hostname.includes("192.168.2.43")) // TODO: remove for production
+        
 }
 
 export const authService = AuthService.getInstance()
