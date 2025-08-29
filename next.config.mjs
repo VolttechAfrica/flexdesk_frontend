@@ -47,6 +47,14 @@ const nextConfig = {
         ]
       }
     ]
+  },
+  webpack: (config) => {
+    config.resolve = config.resolve || {}
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      '@': process.cwd(),
+    }
+    return config
   }
 }
 
