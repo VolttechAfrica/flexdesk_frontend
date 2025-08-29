@@ -14,10 +14,10 @@ const nextConfig = {
     dangerouslyAllowSVG: false,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
-  experimental: {
-    allowMiddlewareResponseBody: true,
-    turbo: true,
-  },
+  // experimental: {
+  //   allowMiddlewareResponseBody: true,
+  //   turbo: true,
+  // },
   // Add security headers
   async headers() {
     return [
@@ -47,6 +47,10 @@ const nextConfig = {
         ]
       }
     ]
+  },
+  webpack: (config) => {
+    config.resolve.alias = { ...(config.resolve.alias || {}), '@': process.cwd() }
+    return config
   }
 }
 

@@ -105,6 +105,8 @@ export function middleware(request: NextRequest) {
     return response
   }
 
+
+  
   // Let role-based gating be handled in the app (ProtectedRoute)
   const response = NextResponse.next()
   response.headers.set('X-Middleware-Cache', 'no-cache')
