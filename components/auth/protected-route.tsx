@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/contexts/AuthContext"
-import { Loader2, Shield, AlertTriangle } from "lucide-react"
+import { Loader2, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
@@ -27,8 +27,6 @@ export function ProtectedRoute({
   // Role gating is handled here (middleware only checks auth)
 
   useEffect(() => {
-    console.log("isLoading", isLoading)
-    console.log("isAuthenticated", isAuthenticated)
     if (!isLoading && !isAuthenticated) {
       const currentPath = window.location.pathname
       const redirectUrl = `/login?redirect=${encodeURIComponent(currentPath)}`

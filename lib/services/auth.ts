@@ -270,12 +270,7 @@ class AuthService {
 
 // Development mode check
 function isDevelopment(): boolean {
-  return typeof window !== "undefined" && 
-         (window.location.hostname === "localhost" || 
-          window.location.hostname === "127.0.0.1" ||
-          window.location.hostname.includes("localhost") ||
-          window.location.hostname.includes("192.168.2.43")) // TODO: remove for production
-        
+  return process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test"
 }
 
 export const authService = AuthService.getInstance()
