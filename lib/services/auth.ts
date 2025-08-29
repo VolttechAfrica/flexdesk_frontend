@@ -84,19 +84,14 @@ class AuthService {
     }
   }
 
-  // Development fallback token storage - REMOVE IN PRODUCTION
+
   private setRefreshTokenFallback(token: string): void {
-    if (!isDevelopment()) {
-      log.warn("Client-side token storage should not be used in production", { action: 'security_warning' })
-      return
-    }
-    
+ 
     try {
       if (!token) throw new Error("Token is required")
       if (typeof window !== "undefined") {
         const isHttps = window.location.protocol === "https:"
         const secureAttr = isHttps ? "secure; " : ""
-        // Use lax in dev to avoid CSRF issues with redirects; strict in prod
         const sameSite = isHttps ? "strict" : "lax"
         document.cookie = `refresh_token=${token}; path=/; max-age=604800; ${secureAttr}samesite=${sameSite}`
       }
@@ -106,11 +101,6 @@ class AuthService {
   }
 
   private setAccessTokenFallback(token: string): void {
-    if (!isDevelopment()) {
-      log.warn("Client-side token storage should not be used in production", { action: 'security_warning' })
-      return
-    }
-
     try {
       if (!token) throw new Error("Token is required")
       if (typeof window !== "undefined") {
@@ -126,7 +116,6 @@ class AuthService {
 
   private setAuthUser(user: User): void {
     if (typeof window !== "undefined") {
-      // Only store non-sensitive user data
       const safeUserData = {
         id: user.id,
         firstName: user.firstName,
@@ -150,7 +139,6 @@ class AuthService {
         return user ? JSON.parse(user) : null
       } catch (error) {
         log.error("Error parsing user data", error as Error, { action: 'user_data_parse_error' })
-        // Clear corrupted data
         localStorage.removeItem("user")
         return null
       }
@@ -160,10 +148,8 @@ class AuthService {
 
   public clearAuthData(): void {
     if (typeof window !== "undefined") {
-      // Clear user data
       localStorage.removeItem("user")
       
-      // Clear fallback token cookies
       const isHttps = window.location.protocol === "https:"
       const secureAttr = isHttps ? "secure; " : ""
       const sameSite = isHttps ? "strict" : "lax"
@@ -175,10 +161,6 @@ class AuthService {
   }
 
   getStoredToken(): string | null {
-    if (!isDevelopment()) {
-      return null
-    }
-    
     if (typeof window === "undefined") return null
     
     const token = document.cookie
@@ -203,22 +185,19 @@ class AuthService {
       const payload = JSON.parse(atob(parts[1]))
       const currentTime = Math.floor(Date.now() / 1000)
       
-      // Check if token has expiration
       if (!payload.exp || typeof payload.exp !== 'number') {
         return true
       }
       
-      // Add 5 minute buffer for refresh
       return payload.exp < (currentTime + 300)
     } catch (error) {
       if (isDevelopment()) {
         log.error("Token validation error", error as Error, { action: 'token_validation_error' })
       }
-      return true // If we can't parse the token, consider it expired
+      return true 
     }
   }
 
-  // Get token expiration time with validation
   getTokenExpiration(token: string): Date | null {
     try {
       if (!token || typeof token !== 'string') {
@@ -245,7 +224,6 @@ class AuthService {
     }
   }
 
-  // Validate token structure
   isValidTokenFormat(token: string): boolean {
     try {
       if (!token || typeof token !== 'string') {
@@ -257,7 +235,6 @@ class AuthService {
         return false
       }
       
-      // Basic format validation
       const header = JSON.parse(atob(parts[0]))
       const payload = JSON.parse(atob(parts[1]))
       
@@ -268,7 +245,6 @@ class AuthService {
   }
 }
 
-// Development mode check
 function isDevelopment(): boolean {
   return process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test"
 }

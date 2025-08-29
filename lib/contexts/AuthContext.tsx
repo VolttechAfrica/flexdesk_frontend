@@ -21,7 +21,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
-  const isAuthenticated = true//!!token && !!user
+  const isAuthenticated = !!token && !!user
 
   useEffect(() => {
     // Check for stored token on mount
