@@ -4,6 +4,8 @@ import { GeistMono } from 'geist/font/mono'
 import './globals.css'
 import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from "@/lib/contexts/AuthContext"
+import { SpeedInsights } from '@vercel/speed-insights/next'
+import { Analytics } from "@vercel/analytics/next"
 
 export const metadata: Metadata = {
   title: 'Flexdesk School Management System',
@@ -32,6 +34,8 @@ html {
           {children}
         </AuthProvider>
         <Toaster />
+        <SpeedInsights />
+        <Analytics />
       </body>
     </html>
   )
