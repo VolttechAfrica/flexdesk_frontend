@@ -76,6 +76,7 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('access_token')?.value
 
   if (!token) {
+    console.log('No token found, redirecting to login')
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('redirect', pathname)
     return NextResponse.redirect(loginUrl)
@@ -83,6 +84,7 @@ export function middleware(request: NextRequest) {
 
   // Validate token
   if (!isValidToken(token)) {
+    console.log('Token is invalid, redirecting to login')
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('redirect', pathname)
     loginUrl.searchParams.set('error', 'token_expired')
@@ -106,7 +108,7 @@ export function middleware(request: NextRequest) {
   }
 
 
-  
+
   // Let role-based gating be handled in the app (ProtectedRoute)
   const response = NextResponse.next()
   response.headers.set('X-Middleware-Cache', 'no-cache')
