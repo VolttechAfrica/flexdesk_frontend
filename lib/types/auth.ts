@@ -116,8 +116,8 @@ export interface LoginRequest {
   
   export const ROLE_ROUTES: Record<UserRole, string> = {
     "801": "/admin/dashboard", // Admin (can also be Super Admin)
-    "802": "/superadmin/dashboard", // Super Admin
-    "800": "/superadmin/dashboard", // Super Admin
+    "802": "/admin/dashboard", // Super Admin
+    "800": "/admin/dashboard", // Super Admin
     "803": "/teacher/dashboard", // Teacher
     "805": "/parent/dashboard", // Parent
     "804": "/student/dashboard", // Student
