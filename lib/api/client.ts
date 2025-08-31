@@ -8,7 +8,6 @@ import axios, {
 import type { ApiResponse, RequestConfig } from "@/lib/types/api"
 import { log } from "@/lib/services/logger"
 
-// Environment configuration with validation
 const getApiConfig = () => {
   const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL
   if (!baseURL) {
@@ -23,10 +22,8 @@ const getApiConfig = () => {
   } as const
 }
 
-// Refresh endpoint path (joined with baseURL by axios)
 const REFRESH_ENDPOINT_PATH = "/auth/token/refresh"
 
-// Custom error class for API errors
 export class ApiClientError extends Error {
   public readonly code: string
   public readonly status?: number
@@ -43,7 +40,6 @@ export class ApiClientError extends Error {
   }
 }
 
-// Request/Response interceptor types
 type RequestInterceptor = (
   config: InternalAxiosRequestConfig,
 ) => InternalAxiosRequestConfig | Promise<InternalAxiosRequestConfig>
@@ -77,68 +73,60 @@ class ApiClient {
         Accept: "application/json",
         "X-Client-Version": process.env.NEXT_PUBLIC_APP_VERSION || "1.0.0",
         "X-Client-Platform": "web",
-        "X-Requested-With": "XMLHttpRequest", // CSRF protection
+        "X-Requested-With": "XMLHttpRequest",
         ...this.defaultConfig.headers,
       },
-      withCredentials: true, // Enable cookies for CSRF protection
+      withCredentials: true,
     })
 
     this.setupInterceptors()
   }
 
   private setupInterceptors(): void {
-    // Request interceptor
     this.client.interceptors.request.use(this.requestInterceptor, this.requestErrorInterceptor)
-
-    // Response interceptor
     this.client.interceptors.response.use(this.responseInterceptor, this.responseErrorInterceptor)
   }
 
   private requestInterceptor: RequestInterceptor = (config) => {
-    // Add request ID for tracing
     const requestId = this.generateRequestId()
     config.headers = config.headers || {}
     config.headers["X-Request-ID"] = requestId
-
-    // Add timestamp
     config.headers["X-Request-Timestamp"] = new Date().toISOString()
 
-    // Determine if this is a public route that doesn't need authentication
     const isPublicRoute = this.isPublicRoute(config.url)
     const isRefreshRequest = this.isRefreshUrl(config.url)
 
-    // Only attach access token for authenticated routes
     if (!isPublicRoute) {
       const accessToken = this.getAccessToken()
+       //TODO: remove this
+       console.log('Access token', accessToken)
       if (accessToken) {
-        config.headers.Authorization = `Bearer ${accessToken}`
+        config.headers.Authorization = `${accessToken}`
       }
     }
 
-    // For refresh requests, also attach refresh token in X-Refresh-Token header
     if (isRefreshRequest) {
       const refreshToken = this.getRefreshToken()
+       //TODO: remove this
+       console.log('Refresh token', refreshToken)
       if (refreshToken) {
         config.headers["X-Refresh-Token"] = refreshToken
       }
     }
 
-    // Add CSRF token if available
     const csrfToken = this.getCsrfToken()
     if (csrfToken) {
       config.headers["X-CSRF-Token"] = csrfToken
     }
 
-    // Log request using structured logging (sanitize sensitive data)
     const sanitizedHeaders = { ...config.headers }
     if (sanitizedHeaders.Authorization) {
       sanitizedHeaders.Authorization = 'Bearer ***'
     }
     if (sanitizedHeaders['X-Refresh-Token']) {
-      sanitizedHeaders['X-Refresh-Token'] = '***'
+      sanitizedHeaders['X-Refresh-Token'] = 'Bearer ***'
     }
 
-    // Sanitize request data for logging (especially for login requests)
     let sanitizedData = config.data
     if (config.url?.includes('/auth/login') && config.data) {
       sanitizedData = { email: '***', password: '***' }
@@ -167,9 +155,9 @@ class ApiClient {
   }
 
   private responseErrorInterceptor: ErrorInterceptor = async (error) => {
+    console.log('API Response Error======', error)
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean; _retryCount?: number }
-  
-    // Handle network errors
+
     if (!error.response) {
       const networkError = new ApiClientError(
         "Network error occurred. Please check your internet connection.",
@@ -185,25 +173,19 @@ class ApiClient {
     const { status, data } = error.response
     const requestId = originalRequest?.headers?.["X-Request-ID"] as string
 
-    // Handle authentication errors (401/403) with token refresh
     if (status === 401 || status === 403) {
       if (originalRequest && !originalRequest._retry && !this.isRefreshUrl(originalRequest.url)) {
         originalRequest._retry = true
         
         try {
-          // Try to refresh the token (sends both access and refresh tokens via headers)
           const newToken = await this.refreshAuthToken()
           if (newToken) {
-            // Update the original request with new token
             originalRequest.headers = originalRequest.headers || {}
             originalRequest.headers.Authorization = `Bearer ${newToken}`
-            
-            // Retry the original request
             return this.client.request(originalRequest)
           }
         } catch (refreshError) {
-          // Token refresh failed, redirect to login
-          this.handleAuthFailure()
+          // this.handleAuthFailure()
           const authError = new ApiClientError(
             "Authentication failed. Please log in again.",
             "AUTH_FAILED",
@@ -222,31 +204,23 @@ class ApiClient {
       }
     }
 
-    // Handle retry logic for specific status codes
     if (this.shouldRetry(status) && this.canRetry(originalRequest)) {
       return this.retryRequest(originalRequest)
     }
 
-    // Parse error response
     const apiError = this.parseErrorResponse(data, status, requestId)
-
-    // Log error using structured logging
     log.api.error(status, originalRequest?.url || 'unknown', requestId || 'unknown', apiError, data)
-
     throw apiError
   }
 
   private shouldRetry(status: number): boolean {
-    // Retry on server errors and rate limiting
     return status >= 500 || status === 429
   }
 
   private canRetry(config?: InternalAxiosRequestConfig & { _retry?: boolean; _retryCount?: number }): boolean {
     if (!config) return false
-
     const retryCount = config._retryCount || 0
     const maxRetries = this.defaultConfig.retries || 0
-
     return retryCount < maxRetries
   }
 
@@ -256,7 +230,6 @@ class ApiClient {
     config._retry = true
     config._retryCount = (config._retryCount || 0) + 1
 
-    // Exponential backoff
     const delay = (this.defaultConfig.retryDelay || 1000) * Math.pow(2, config._retryCount - 1)
     
     log.info(`Retrying request (attempt ${config._retryCount})`, {
@@ -266,12 +239,10 @@ class ApiClient {
     })
     
     await this.sleep(delay)
-
     return this.client.request(config)
   }
 
   private parseErrorResponse(data: any, status: number, requestId?: string): ApiClientError {
-    // Handle structured API error response
     if (data && typeof data === "object" && data.error) {
       return new ApiClientError(
         data?.message || "An error occurred",
@@ -282,7 +253,6 @@ class ApiClient {
       )
     }
 
-    // Handle generic error responses
     const errorMessages: Record<number, string> = {
       400: "Bad request. Please check your input.",
       401: "Authentication required. Please log in.",
@@ -311,17 +281,14 @@ class ApiClient {
     return new Promise((resolve) => setTimeout(resolve, ms))
   }
 
-  // CSRF token management
   private getCsrfToken(): string | null {
     if (typeof window === "undefined") return null
     
-    // Get CSRF token from meta tag or cookie
     const metaTag = document.querySelector('meta[name="csrf-token"]')
     if (metaTag) {
       return metaTag.getAttribute('content')
     }
     
-    // Fallback to cookie
     const token = document.cookie
       .split("; ")
       .find(row => row.startsWith("csrf-token="))
@@ -330,7 +297,6 @@ class ApiClient {
     return token || null
   }
 
-  // Access and refresh token helpers (client-side fallback)
   private getAccessToken(): string | null {
     if (typeof window === "undefined") return null
     const token = document.cookie
@@ -352,7 +318,6 @@ class ApiClient {
   private isRefreshUrl(url?: string): boolean {
     if (!url) return false
     try {
-      // Axios may pass relative URLs ("/auth/token/refresh") or full URLs
       return url.endsWith(REFRESH_ENDPOINT_PATH) || new URL(url, window.location.origin).pathname.endsWith(REFRESH_ENDPOINT_PATH)
     } catch {
       return url.endsWith(REFRESH_ENDPOINT_PATH)
@@ -372,18 +337,15 @@ class ApiClient {
     ]
     
     try {
-      // Check if URL matches any public route
       const pathname = url.startsWith('http') ? new URL(url).pathname : url
       return publicRoutes.some(route => pathname.startsWith(route))
     } catch {
-      // Fallback to simple string matching
       return publicRoutes.some(route => url.startsWith(route))
     }
   }
 
   private async refreshAuthToken(): Promise<string | null> {
     if (this.isRefreshing) {
-      // If already refreshing, wait for it to complete
       return new Promise((resolve, reject) => {
         this.failedQueue.push({ resolve, reject })
       })
@@ -392,20 +354,19 @@ class ApiClient {
     this.isRefreshing = true
 
     try {
+      console.log('Refreshing auth token')
       const accessToken = this.getAccessToken()
       const refreshToken = this.getRefreshToken()
       if (!accessToken || !refreshToken) {
+        console.log('Missing tokens for refresh')
         throw new Error("Missing tokens for refresh")
       }
 
-      // Import auth service dynamically to avoid circular dependency
       const { authService } = await import("@/lib/services/auth")
-      // The interceptor will attach Authorization and X-Refresh-Token headers
       await authService.refreshToken({ token: accessToken })
       
       const newAccessToken = this.getAccessToken()
       
-      // Process queued requests
       this.failedQueue.forEach(({ resolve }) => {
         resolve(newAccessToken as any)
       })
@@ -414,7 +375,6 @@ class ApiClient {
       log.info('Token refreshed successfully', { action: 'token_refresh_success' })
       return newAccessToken
     } catch (error) {
-      // Process queued requests with error
       this.failedQueue.forEach(({ reject }) => {
         reject(error)
       })
@@ -428,22 +388,18 @@ class ApiClient {
   }
 
   private handleAuthFailure(): void {
-    // Clear token and redirect to login
     if (typeof window !== "undefined") {
-      // Clear token cookies
       document.cookie = "access_token=; path=/; max-age=0; secure; samesite=strict"
       document.cookie = "refresh_token=; path=/; max-age=0; secure; samesite=strict"
       
       log.warn('Authentication failed, redirecting to login', { action: 'auth_failure_redirect' })
       
-      // Redirect to login page
       // if (window.location.pathname !== "/login") {
       //   window.location.href = "/login"
       // }
     }
   }
 
-  // Public API methods
   public async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     const response = await this.client.get<ApiResponse<T>>(url, config)
     return response.data
@@ -469,7 +425,6 @@ class ApiClient {
     return response.data
   }
 
-  // File upload method
   public async uploadFile<T = any>(
     url: string,
     file: File,
@@ -491,7 +446,6 @@ class ApiClient {
     return response.data
   }
 
-  // Health check method
   public async healthCheck(): Promise<boolean> {
     try {
       await this.get("/health")
@@ -504,8 +458,5 @@ class ApiClient {
   }
 }
 
-// Export singleton instance
 export const apiClient = new ApiClient()
-
-// Export class for custom instances
 export { ApiClient }

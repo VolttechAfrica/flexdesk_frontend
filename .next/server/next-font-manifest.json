@@ -1,5 +1,9 @@
 {
   "app": {
+    "[project]/app/(protectedRoute)/(dashboards)/admin/dashboard/page": [
+      "static/media/GeistMono_Variable.p.6bae060c.woff2",
+      "static/media/Geist_Variable-s.p.f406b17f.woff2"
+    ],
     "[project]/app/(protectedRoute)/onboarding/page": [
       "static/media/GeistMono_Variable.p.6bae060c.woff2",
       "static/media/Geist_Variable-s.p.f406b17f.woff2"
@@ -9,6 +13,10 @@
       "static/media/Geist_Variable-s.p.f406b17f.woff2"
     ],
     "[project]/app/login/page": [
+      "static/media/GeistMono_Variable.p.6bae060c.woff2",
+      "static/media/Geist_Variable-s.p.f406b17f.woff2"
+    ],
+    "[project]/app/page": [
       "static/media/GeistMono_Variable.p.6bae060c.woff2",
       "static/media/Geist_Variable-s.p.f406b17f.woff2"
     ]
