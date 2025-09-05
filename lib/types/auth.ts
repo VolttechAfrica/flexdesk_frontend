@@ -1,3 +1,5 @@
+import { ForgotPasswordResponse, ForgotPasswordRequest, VerifyOTPRequest, VerifyOTPResponse } from "@/lib/types/forgotpassword"
+
 export interface LoginRequest {
     email: string
     password: string
@@ -47,6 +49,9 @@ export interface LoginRequest {
     id: string
     firstName: string
     lastName: string
+    otherName?: string
+    status?: string
+    gender?: string
     class: {
       id: string
       name: string
@@ -108,8 +113,10 @@ export interface LoginRequest {
     isLoading: boolean
     error: string | null
     login: (credentials: LoginRequest) => Promise<void>
+    forgotPassword: (email: string) => Promise<ForgotPasswordResponse>
     logout: () => void
     refreshAuth: () => Promise<void>
+    verifyOTP: (email: string, otp: string) => Promise<VerifyOTPResponse>
   }
   
   export type UserRole = "801" | "802" | "803" | "805" | "804" | "807" | "800"

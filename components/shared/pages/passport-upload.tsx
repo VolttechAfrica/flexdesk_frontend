@@ -120,6 +120,8 @@ export function PassportUpload({ value, onChange, onError, userId, schoolId }: P
       <input
         ref={fileInputRef}
         type="file"
+        title="Upload passport photo"
+        aria-label="Upload passport photo"
         accept="image/jpeg,image/jpg,image/png"
         onChange={handleFileSelect}
         className="hidden"

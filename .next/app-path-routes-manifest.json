@@ -1,16 +1,18 @@
 {
-  "/features/page": "/features",
+  "/_not-found/page": "/_not-found",
+  "/(auth)/changepassword/page": "/changepassword",
+  "/(auth)/login/page": "/login",
+  "/(auth)/verify-otp/page": "/verify-otp",
   "/about/page": "/about",
+  "/features/page": "/features",
   "/get-started/page": "/get-started",
-  "/login/page": "/login",
+  "/page": "/",
   "/privacy/page": "/privacy",
   "/solutions/administrators/page": "/solutions/administrators",
-  "/page": "/",
   "/solutions/parents/page": "/solutions/parents",
   "/solutions/teachers/page": "/solutions/teachers",
   "/support/page": "/support",
   "/terms/page": "/terms",
-  "/_not-found/page": "/_not-found",
   "/(protectedRoute)/onboarding/page": "/onboarding",
   "/(protectedRoute)/(dashboards)/admin/dashboard/page": "/admin/dashboard"
 }

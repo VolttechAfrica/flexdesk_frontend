@@ -364,7 +364,7 @@ export const hearAboutUsOptions = [
   "Educational publication",
   "Partner recommendation",
   "Other",
-]
+] as Array<string>
 
 export const specificNeedsOptions = [
   "Student Information System",
@@ -378,3 +378,61 @@ export const specificNeedsOptions = [
   "Mobile Access",
   "Integration with existing systems",
 ]
+
+export const CONTACT_METHODS = [
+  { value: "EMAIL", label: "Email" },
+  { value: "SMS", label: "SMS/Text Message" },
+  { value: "WHATSAPP", label: "WhatsApp" },
+] as const
+
+export const NIGERIAN_STATES = [
+  "Abia",
+  "Adamawa",
+  "Akwa Ibom",
+  "Anambra",
+  "Bauchi",
+  "Bayelsa",
+  "Benue",
+  "Borno",
+  "Cross River",
+  "Delta",
+  "Ebonyi",
+  "Edo",
+  "Ekiti",
+  "Enugu",
+  "FCT",
+  "Gombe",
+  "Imo",
+  "Jigawa",
+  "Kaduna",
+  "Kano",
+  "Katsina",
+  "Kebbi",
+  "Kogi",
+  "Kwara",
+  "Lagos",
+  "Nasarawa",
+  "Niger",
+  "Ogun",
+  "Ondo",
+  "Osun",
+  "Oyo",
+  "Plateau",
+  "Rivers",
+  "Sokoto",
+  "Taraba",
+  "Yobe",
+  "Zamfara",
+] as Array<string>
+
+export const RELATIONSHIP_OPTIONS = [
+  "Father",
+  "Mother",
+  "Guardian",
+  "Grandfather",
+  "Grandmother",
+  "Uncle",
+  "Aunt",
+  "Sibling",
+  "Other",
+] as Array<string>

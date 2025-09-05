@@ -6,6 +6,7 @@ import { authService } from "@/lib/services/auth"
 import { type AuthContextType, type LoginRequest, type User, ROLE_ROUTES } from "@/lib/types/auth"
 import { toast } from "@/hooks/use-toast"
 import { log } from "@/lib/services/logger"
+import { ForgotPasswordResponse, VerifyOTPResponse } from "@/lib/types/forgotpassword"
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
@@ -27,24 +28,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Check for stored token on mount
     const initializeAuth = async () => {
       try {
-        const storedToken = authService.getStoredToken()
+        const storedToken = authService.getStoredAccessToken()
         const newUser = authService.getAuthUser()
         if (storedToken && newUser) {
-          if (authService.isTokenExpired(storedToken)) {
+          if (authService.isAccessTokenExpired()) {
             try {
-              await authService.refreshToken({ token: storedToken })
-              const newToken = authService.getStoredToken()
+              await authService.refreshToken()
+              const newToken = authService.getStoredAccessToken()
              
               if (newToken) {
                 setToken(newToken)
                 setUser(newUser)
                 log.auth('Auth initialized with refreshed token', newUser.id)
               } else {
-                authService.clearAuthData()
+                authService.clearAllAuthData()
                 log.warn('Token refresh failed during initialization', { action: 'init_token_refresh_failed' })
               }
             } catch (refreshError) {
-              authService.clearAuthData()
+              authService.clearAllAuthData()
               log.error('Token refresh failed during initialization', refreshError as Error, { action: 'init_token_refresh_error' })
             }
           } else {
@@ -69,10 +70,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const refreshInterval = setInterval(async () => {
       try {
-        const currentToken = authService.getStoredToken()
-        if (currentToken && authService.isTokenExpired(currentToken)) {
-          await authService.refreshToken({ token: currentToken })
-          const newToken = authService.getStoredToken()
+        const currentToken = authService.getStoredAccessToken()
+        if (currentToken && authService.isAccessTokenExpired()) {
+          await authService.refreshToken()
+          const newToken = authService.getStoredAccessToken()
           if (newToken) {
             setToken(newToken)
             log.info('Auto token refresh successful', { action: 'auto_token_refresh_success' })
@@ -135,7 +136,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setToken(null)
       setPermissions([])
       setError(null)
-      authService.clearAuthData()
+      authService.clearAllAuthData()
       router.replace("/login")
       
       toast({
@@ -148,10 +149,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const refreshAuth = async (): Promise<void> => {
     try {
-      const currentToken = authService.getStoredToken()
+      const currentToken = authService.getStoredAccessToken()
       if (currentToken) {
-        await authService.refreshToken({ token: currentToken })
-        const newToken = authService.getStoredToken()
+        await authService.refreshToken()
+        const newToken = authService.getStoredAccessToken()
         if (newToken) {
           setToken(newToken)
           log.info('Manual token refresh successful', { action: 'manual_token_refresh_success' })
@@ -163,6 +164,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
+  const forgotPassword = async (email: string): Promise<ForgotPasswordResponse> => {
+    return await authService.forgotPassword(email)
+  }
+
+  const verifyOTP = async (email: string, otp: string): Promise<VerifyOTPResponse> => {
+    return await authService.verifyOTP(email, otp)
+  }
+
+  
+
   const value: AuthContextType = {
     user,
     token,
@@ -173,6 +184,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     login,
     logout,
     refreshAuth,
+    forgotPassword,
+    verifyOTP
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

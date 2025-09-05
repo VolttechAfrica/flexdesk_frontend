@@ -1,7 +1,4 @@
 {
-  "/(protectedRoute)/(dashboards)/admin/dashboard/page": "app/(protectedRoute)/(dashboards)/admin/dashboard/page.js",
-  "/(protectedRoute)/onboarding/page": "app/(protectedRoute)/onboarding/page.js",
-  "/_not-found/page": "app/_not-found/page.js",
-  "/login/page": "app/login/page.js",
+  "/(auth)/login/page": "app/(auth)/login/page.js",
   "/page": "app/page.js"
 }

@@ -98,8 +98,7 @@ class ApiClient {
 
     if (!isPublicRoute) {
       const accessToken = this.getAccessToken()
-       //TODO: remove this
-       console.log('Access token', accessToken)
+
       if (accessToken) {
         config.headers.Authorization = `${accessToken}`
       }
@@ -107,8 +106,6 @@ class ApiClient {
 
     if (isRefreshRequest) {
       const refreshToken = this.getRefreshToken()
-       //TODO: remove this
-       console.log('Refresh token', refreshToken)
       if (refreshToken) {
         config.headers["X-Refresh-Token"] = refreshToken
       }
@@ -155,7 +152,7 @@ class ApiClient {
   }
 
   private responseErrorInterceptor: ErrorInterceptor = async (error) => {
-    console.log('API Response Error======', error)
+
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean; _retryCount?: number }
 
     if (!error.response) {
@@ -354,16 +351,14 @@ class ApiClient {
     this.isRefreshing = true
 
     try {
-      console.log('Refreshing auth token')
       const accessToken = this.getAccessToken()
       const refreshToken = this.getRefreshToken()
       if (!accessToken || !refreshToken) {
-        console.log('Missing tokens for refresh')
         throw new Error("Missing tokens for refresh")
       }
 
       const { authService } = await import("@/lib/services/auth")
-      await authService.refreshToken({ token: accessToken })
+      await authService.refreshToken()
       
       const newAccessToken = this.getAccessToken()
       

@@ -34,6 +34,7 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
 
 // Support form specific types
 export interface SupportTicketRequest {
+  schoolId?: string
   firstName: string
   lastName: string
   email: string
