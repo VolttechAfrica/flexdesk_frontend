@@ -1,1 +1,5 @@
-"use strict";(()=>{var e={};e.id=839,e.ids=[839],e.modules={8732:e=>{e.exports=require("react/jsx-runtime")},33873:e=>{e.exports=require("path")},40361:e=>{e.exports=require("next/dist/compiled/next-server/pages.runtime.prod.js")},82015:e=>{e.exports=require("react")}};var r=require("../webpack-runtime.js");r.C(e);var s=e=>r(r.s=e),t=r.X(0,[548],()=>s(58548));module.exports=t})();
+var R=require("../chunks/ssr/[turbopack]_runtime.js")("server/pages/_document.js")
+R.c("server/chunks/ssr/node_modules_0b53a5be._.js")
+R.c("server/chunks/ssr/[root-of-the-server]__e6a4d965._.js")
+R.m("[project]/node_modules/next/document.js [ssr] (ecmascript)")
+module.exports=R.m("[project]/node_modules/next/document.js [ssr] (ecmascript)").exports

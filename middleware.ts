@@ -12,6 +12,10 @@ const publicRoutes = [
   '/support',
   '/privacy',
   '/terms',
+  '/verify-otp',
+  '/reset-password',
+  '/forgot-password',
+  '/changepassword',
 ]
 
 // Authenticated-only routes (no role check here)
