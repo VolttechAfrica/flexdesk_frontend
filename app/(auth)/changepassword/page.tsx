@@ -13,9 +13,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ArrowLeft, Eye, EyeOff, Lock, CheckCircle, Loader2 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
-import { toast } from "sonner"
-import type { ChangePasswordRequest, ChangePasswordResponse } from "@/lib/types/forgotpassword"
-import { getCookie } from "@/lib/utils/getCookie"
+import { toast } from "@/hooks/use-toast"
+
+import { getCookie, removeCookie } from "@/lib/utils/manageCookie"
+import { useIdleTime } from "@/hooks/useIdealTime"
+import { useAuth } from "@/lib/contexts/AuthContext"
+
 
 const resetPasswordSchema = z
   .object({
@@ -35,7 +38,6 @@ type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>
 export default function ChangePasswordPage() {
   const router = useRouter()
 
-  // Get token and email from cookie
   const token = getCookie("password_reset_token")
   const email = getCookie("email")
 
@@ -43,10 +45,20 @@ export default function ChangePasswordPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const { resetPassword } = useAuth()
+
+  useIdleTime({
+    timeout: 15 * 60 * 1000,
+    onIdle: () => {
+      router.replace("/login?message=Session expired. Please start over.")
+      removeCookie("password_reset_token")
+      removeCookie("email")
+    }
+  })
 
   useEffect(() => {
     if (!token || !email) {
-      //router.replace("/login?message=Invalid or expired verification token. Please restart the password reset process.")
+      router.replace("/login?message=Invalid or expired verification token. Please restart the password reset process.")
     }
   }, [token, email])
 
@@ -73,6 +85,8 @@ export default function ChangePasswordPage() {
     if (/[A-Z]/.test(newPassword)) score++
     if (/\d/.test(newPassword)) score++
     if (/[^a-zA-Z\d]/.test(newPassword)) score++
+   
+
 
     const labels = ["Very Weak", "Weak", "Fair", "Good", "Strong"]
     const colors = ["bg-red-500", "bg-orange-500", "bg-yellow-500", "bg-blue-500", "bg-green-500"]
@@ -108,29 +122,27 @@ export default function ChangePasswordPage() {
       setIsSubmitting(true)
 
       try {
-        
+        await resetPassword(data.newPassword, data.confirmPassword, token as string, email as string)
+        toast({
+          title: "Password reset successfully!",
+          description: "You can now log in with your new password.",
+        })
+        reset()
+        removeCookie("password_reset_token")
+        removeCookie("email")
+        router.push("/login?message=Password reset successful. Please log in with your new password.")
 
-        // if (result.status) {
-        //   toast.success("Password reset successfully!")
-        //   reset()
-        //   router.push("/login?message=Password reset successful. Please log in with your new password.")
-        // } else {
-        //   setError("root", {
-        //     type: "manual",
-        //     message: result.message,
-        //   })
-        // }
       } catch (error) {
         setError("root", {
           type: "manual",
-          message: "Network error. Please try again.",
+          message: error instanceof Error ? error.message : "Network error. Please try again.",
         })
         console.error("Reset password error:", error)
       } finally {
         setIsSubmitting(false)
       }
     },
-    [token, setError, reset, router],
+    [token, setError, reset, router, removeCookie],
   )
 
   return (
@@ -141,10 +153,6 @@ export default function ChangePasswordPage() {
             <div className="flex items-center justify-center mb-4">
               <Image src="/images/logo-flexdesk.png" alt="FlexDesk" width={32} height={32} className="h-8 w-auto" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Reset Password</h1>
-            <p className="text-gray-600">
-              {email ? `Create a new password for ${email}` : "Create a new password for your account"}
-            </p>
           </div>
 
           <Card className="border-0">

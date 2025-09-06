@@ -211,7 +211,7 @@ class ApiClient {
   }
 
   private shouldRetry(status: number): boolean {
-    return status >= 500 || status === 429
+    return status >= 500
   }
 
   private canRetry(config?: InternalAxiosRequestConfig & { _retry?: boolean; _retryCount?: number }): boolean {

@@ -57,10 +57,19 @@ export const useForgotPasswordStore = create<ForgotPasswordStore>()(
           return { email: "", expiresIn: 0, sentAt: 0 }
         }
         const state = persistedState as ForgotPasswordData & { sentAt?: number }
+        
+        // If sentAt is missing but we have expiresIn, estimate sentAt based on current time
+        let sentAt = state.sentAt || 0
+        if (!sentAt && state.expiresIn > 0) {
+          // Estimate sentAt as current time minus some elapsed time
+          // This prevents immediate expiration on page refresh
+          sentAt = Date.now() - (state.expiresIn * 1000 * 0.1) // Assume 10% time has passed
+        }
+        
         return { 
           email: state.email, 
           expiresIn: state.expiresIn,
-          sentAt: state.sentAt || 0
+          sentAt
         }
       },
     },

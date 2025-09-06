@@ -2,21 +2,29 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
+import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ArrowLeft, Mail, RefreshCw, CheckCircle, Loader2 } from "lucide-react"
-import Link from "next/link"
-import Image from "next/image"
 import { OTPInput } from "@/components/auth/verifyOtp/otp-input"
 import { CountdownTimer } from "@/components/auth/verifyOtp/countdown-timer"
 import { toast } from "@/hooks/use-toast"
 import { useIdleTime } from "@/hooks/useIdealTime"
 import { useForgotPasswordStore } from "@/lib/data/store/useForgotPasswordStore"
 import { useAuth } from "@/lib/contexts/AuthContext"
+import { setCookie } from "@/lib/utils/manageCookie"
+
+// Constants
+const IDLE_TIMEOUT = 15 * 60 * 1000 // 15 minutes
+const DEFAULT_EXPIRY_TIME = 300 // 5 minutes
+const AUTO_SUBMIT_DELAY = 1000 // ms
+const OTP_LENGHTH = 6
 
 export default function VerifyOTPPage() {
   const router = useRouter()
+  const { forgotPassword, verifyOTP: RequestOTPVerification } = useAuth()
   const { 
     email, 
     expiresIn: initialExpiresIn, 
@@ -26,6 +34,7 @@ export default function VerifyOTPPage() {
     resetForgotPasswordData
   } = useForgotPasswordStore()
 
+  // State management
   const [otp, setOtp] = useState("")
   const [isVerifying, setIsVerifying] = useState(false)
   const [isResending, setIsResending] = useState(false)
@@ -34,12 +43,15 @@ export default function VerifyOTPPage() {
   const [isExpired, setIsExpired] = useState(false)
   const [isHydrated, setIsHydrated] = useState(false)
   const [isVerificationComplete, setIsVerificationComplete] = useState(false)
+  const [hasShownExpiredToast, setHasShownExpiredToast] = useState(false)
 
-  const { forgotPassword, verifyOTP: RequestOTPVerification } = useAuth()
+  // Effects
+  useEffect(() => {
+    router.prefetch("/changepassword")
+  }, [router])
 
-  // Idle timeout hook - redirect to login after 15 minutes of inactivity
   useIdleTime({
-    timeout: 15 * 60 * 1000, // 15 minutes
+    timeout: IDLE_TIMEOUT,
     onIdle: () => {
       toast({
         title: "Session expired",
@@ -51,19 +63,23 @@ export default function VerifyOTPPage() {
     }
   })
 
-  // Handle store hydration
+  // Initialize timer and hydration
   useEffect(() => {
     setIsHydrated(true)
+    
     if (email && initialExpiresIn) {
       const remainingTime = getRemainingTime()
       setExpiresIn(remainingTime)
       setIsExpired(remainingTime <= 0)
+    } else if (email && !initialExpiresIn) {
+      setExpiresIn(DEFAULT_EXPIRY_TIME)
+      setIsExpired(false)
     }
+    
+    setHasShownExpiredToast(false)
   }, [email, initialExpiresIn, getRemainingTime])
 
-
-
-  // Update countdown periodically to stay in sync with store
+  // Update countdown timer
   useEffect(() => {
     if (!email || !initialExpiresIn) return
 
@@ -76,25 +92,26 @@ export default function VerifyOTPPage() {
     return () => clearInterval(interval)
   }, [email, initialExpiresIn, getRemainingTime])
 
-  // Memoize validation to prevent unnecessary re-renders
-  const isOTPComplete = useMemo(() => otp.length === 6, [otp])
+  // Computed values
+  const isOTPComplete = useMemo(() => otp.length === OTP_LENGHTH, [otp])
   const canSubmit = useMemo(() => isOTPComplete && !isVerifying && !isExpired, [isOTPComplete, isVerifying, isExpired])
 
-  const handleOTPChange = useCallback(
-    (value: string) => {
-      setOtp(value)
-      if (error) setError("") // Clear error when user types
-    },
-    [error],
-  )
+  // Event handlers
+  const handleOTPChange = useCallback((value: string) => {
+    setOtp(value)
+    if (error) setError("")
+  }, [error])
 
   const handleExpired = useCallback(() => {
     setIsExpired(true)
-    toast({
-      title: "OTP has expired. Please request a new code.",
-      variant: "destructive",
-    })
-  }, [])
+    if (!hasShownExpiredToast && isHydrated) {
+      setHasShownExpiredToast(true)
+      toast({
+        title: "OTP has expired. Please request a new code.",
+        variant: "destructive",
+      })
+    }
+  }, [hasShownExpiredToast, isHydrated])
 
   const verifyOTP = useCallback(async () => {
     if (!canSubmit) return
@@ -111,26 +128,17 @@ export default function VerifyOTPPage() {
           description: "You can now reset your password.",
         })
         
-        // Set verification complete flag before clearing store
         setIsVerificationComplete(true)
+        setCookie("password_reset_token", response.data.resetToken, 600)
+        setCookie("email", email, 600)
         
-        // Set secure cookie for password reset
-        const isHttps = window.location.protocol === "https:"
-        const secureAttr = isHttps ? "secure; " : ""
-        const sameSite = isHttps ? "strict" : "lax"
-        document.cookie = `password_reset_token=${response.data.resetToken}; max-age=600; path=/changepassword; ${secureAttr}samesite=${sameSite}`
-        document.cookie = `email=${email}; max-age=600; path=/changepassword; ${secureAttr}samesite=${sameSite}`
-        
-        // Navigate first, then clear store data
         router.replace("/changepassword")
         
-        // Clear the forgot password store data after navigation
         setTimeout(() => {
           resetForgotPasswordData()
         }, 100)
       } else {
         setError(response?.message || "Invalid OTP. Please try again.")
-        setOtp("") // Clear OTP on error
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Network error. Please check your connection and try again."
@@ -138,7 +146,7 @@ export default function VerifyOTPPage() {
     } finally {
       setIsVerifying(false)
     }
-  }, [canSubmit, email, otp, router, resetForgotPasswordData])
+  }, [canSubmit, email, otp, router, resetForgotPasswordData, RequestOTPVerification])
 
   const resendOTP = useCallback(async () => {
     if (!email || isResending) return
@@ -147,11 +155,10 @@ export default function VerifyOTPPage() {
     setError("")
 
     try {
-      const response = await forgotPassword(email)
-
-      if (response?.data?.expiresIn) {
-        setForgotPasswordData({ email, expiresIn: Number(response.data.expiresIn) })
-        setExpiresIn(Number(response.data.expiresIn))
+      const response = await forgotPassword(email) as any
+      if (response?.expiresIn) {
+        setForgotPasswordData({ email, expiresIn: Number(response.expiresIn) })
+        setExpiresIn(Number(response.expiresIn))
         setIsExpired(false)
         setOtp("")
         toast({
@@ -167,30 +174,34 @@ export default function VerifyOTPPage() {
     } finally {
       setIsResending(false)
     }
-  }, [email, isResending, setForgotPasswordData])
+  }, [email, isResending, setForgotPasswordData, forgotPassword])
 
-  // Auto-submit when OTP is complete
   const handleOTPComplete = useCallback(() => {
     if (isOTPComplete && !isVerifying && !isExpired) {
       verifyOTP()
     }
   }, [isOTPComplete, isVerifying, isExpired, verifyOTP])
 
-  // Trigger verification when OTP is complete
-  useEffect(() => {
-    if (isOTPComplete) {
-      const timer = setTimeout(handleOTPComplete, 500)
-      return () => clearTimeout(timer)
-    }
-  }, [isOTPComplete, handleOTPComplete])
+  // Auto-submit when OTP is complete
+  // useEffect(() => {
+  //   if (isOTPComplete) {
+  //     const timer = setTimeout(handleOTPComplete, AUTO_SUBMIT_DELAY)
+  //     return () => clearTimeout(timer)
+  //   }
+  // }, [isOTPComplete, handleOTPComplete])
 
+  // Handle invalid session redirect
   useEffect(() => {
-    if (!isVerificationComplete && (!email || !initialExpiresIn)) {
-      router.replace("/login?message=Invalid or expired verification token. Please restart the password reset process.")
-    }
-  }, [email, initialExpiresIn, router, isVerificationComplete])
+    if (!isHydrated || isVerificationComplete || otp.length > 0) return
 
-  // Show loading state during hydration
+    if (!email) {
+      router.replace(
+        "/login?message=Invalid verification session. Please restart the password reset process.",
+      )
+    }
+  }, [email, router, isVerificationComplete, isHydrated, otp.length])
+
+  // Loading state
   if (!isHydrated) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -202,33 +213,25 @@ export default function VerifyOTPPage() {
     )
   }
 
-  // Show invalid access only after hydration is complete
-  // if (!email || !initialExpiresIn) {
-  //   return (
-  //     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
-  //       <Card className="w-full max-w-md">
-  //         <CardContent className="pt-6 text-center">
-  //           <p className="text-gray-600 mb-4">Invalid access. Please start the password reset process again.</p>
-  //           <Link href="/login">
-  //             <Button>Back to Login</Button>
-  //           </Link>
-  //         </CardContent>
-  //       </Card>
-  //     </div>
-  //   )
-  // }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <div className="flex min-h-screen items-center justify-center p-4">
         <div className="w-full max-w-md">
-          {/* Mobile Logo */}
+          {/* Logo */}
           <div className="mb-8 text-center">
             <div className="flex items-center justify-center mb-4">
-              <Image src="/images/logo-flexdesk.png" alt="FlexDesk" width={32} height={32} className="h-8 w-auto" />
+              <Image 
+                src="/images/logo-flexdesk.png" 
+                alt="FlexDesk" 
+                width={32} 
+                height={32} 
+                className="h-8 w-auto" 
+              />
             </div>
           </div>
 
+          {/* Main Card */}
           <Card className="border-0">
             <CardHeader className="text-center pb-6">
               <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
@@ -243,6 +246,7 @@ export default function VerifyOTPPage() {
             </CardHeader>
 
             <CardContent className="space-y-6">
+              {/* OTP Input Section */}
               <div className="space-y-4">
                 <OTPInput
                   value={otp}
@@ -268,8 +272,14 @@ export default function VerifyOTPPage() {
                 </div>
               </div>
 
+              {/* Action Buttons */}
               <div className="space-y-4">
-                <Button onClick={verifyOTP} disabled={!canSubmit} className="w-full" size="lg">
+                <Button 
+                  onClick={verifyOTP} 
+                  disabled={!canSubmit} 
+                  className="w-full" 
+                  size="lg"
+                >
                   {isVerifying ? (
                     <>
                       <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -288,7 +298,7 @@ export default function VerifyOTPPage() {
                   <Button
                     variant="ghost"
                     onClick={resendOTP}
-                    disabled={!isExpired && !isStoreExpired() || isResending}
+                    disabled={(!isExpired && !isStoreExpired()) || isResending}
                     className="text-blue-600 hover:text-blue-700"
                   >
                     {isResending ? (
@@ -303,6 +313,7 @@ export default function VerifyOTPPage() {
                 </div>
               </div>
 
+              {/* Help Text */}
               <div className="pt-2">
                 <p className="text-center text-xs text-gray-500">
                   Having trouble? Check your spam folder or contact support.
@@ -311,6 +322,7 @@ export default function VerifyOTPPage() {
             </CardContent>
           </Card>
 
+          {/* Back to Login */}
           <div className="mt-6 text-center">
             <Link
               href="/login"
