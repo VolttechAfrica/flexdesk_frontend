@@ -172,6 +172,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return await authService.verifyOTP(email, otp)
   }
 
+  const resetPassword = async (password: string, confirmPassword: string, resetToken: string, email: string): Promise<void> => {
+    return await authService.resetPassword(password, confirmPassword, resetToken, email)
+  }
+
   
 
   const value: AuthContextType = {
@@ -185,7 +189,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     logout,
     refreshAuth,
     forgotPassword,
-    verifyOTP
+    verifyOTP,
+    resetPassword
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

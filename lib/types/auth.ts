@@ -117,6 +117,7 @@ export interface LoginRequest {
     logout: () => void
     refreshAuth: () => Promise<void>
     verifyOTP: (email: string, otp: string) => Promise<VerifyOTPResponse>
+    resetPassword: (password: string, confirmPassword: string, resetToken: string, email: string) => Promise<void>
   }
   
   export type UserRole = "801" | "802" | "803" | "805" | "804" | "807" | "800"

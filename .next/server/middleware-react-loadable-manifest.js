@@ -1,1 +1,0 @@
-self.__REACT_LOADABLE_MANIFEST='{"lib/api/client.ts -> @/lib/services/auth":{"id":36354,"files":["static/chunks/6354.bd08b4d06e2bfe2c.js"]}}';

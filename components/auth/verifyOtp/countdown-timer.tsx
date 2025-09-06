@@ -11,13 +11,20 @@ interface CountdownTimerProps {
 
 export function CountdownTimer({ expiresIn, onExpired, className }: CountdownTimerProps) {
   const [timeLeft, setTimeLeft] = useState(expiresIn)
+  const [hasStarted, setHasStarted] = useState(false)
 
   useEffect(() => {
     setTimeLeft(expiresIn)
+    setHasStarted(expiresIn > 0) // Only start if we have time
   }, [expiresIn])
 
   useEffect(() => {
-    if (timeLeft <= 0) {
+    // Don't call onExpired immediately on mount if timeLeft is 0
+    if (timeLeft <= 0 && !hasStarted) {
+      return
+    }
+
+    if (timeLeft <= 0 && hasStarted) {
       onExpired()
       return
     }
@@ -33,7 +40,7 @@ export function CountdownTimer({ expiresIn, onExpired, className }: CountdownTim
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [timeLeft, onExpired])
+  }, [timeLeft, onExpired, hasStarted])
 
   // Memoize formatted time to prevent unnecessary re-renders
   const formattedTime = useMemo(() => {

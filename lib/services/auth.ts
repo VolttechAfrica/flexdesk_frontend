@@ -2,8 +2,9 @@ import type { LoginRequest, LoginResponse, User } from "@/lib/types/auth"
 import { apiClient } from "@/lib/api/client"
 import { log } from "@/lib/services/logger"
 import { ForgotPasswordRequest, ForgotPasswordResponse, VerifyOTPRequest, VerifyOTPResponse } from "@/lib/types/forgotpassword"
+import { setCookie, getCookie, removeCookie } from "@/lib/utils/manageCookie"
 
-// Constants
+
 const AUTH_CONSTANTS = {
   // Cookie settings
   ACCESS_TOKEN_COOKIE: 'access_token',
@@ -30,9 +31,7 @@ const AUTH_ENDPOINTS = {
   FORGOT_PASSWORD: "/auth/forgot-password",
   RESET_PASSWORD: "/auth/reset-password",
   CHANGE_PASSWORD: "/auth/change-password",
-  VERIFY_EMAIL: "/auth/verify-email",
   VERIFY_OTP: "/auth/verify-otp",
-  SEND_OTP: "/auth/send-otp",
 } as const
 
 // Custom Error Classes
@@ -66,9 +65,7 @@ class NetworkError extends AuthError {
  * Token utility class for handling JWT token operations
  */
 class TokenUtils {
-  /**
-   * Validates if a token has the correct JWT format
-   */
+
   static isValidFormat(token: string): boolean {
     try {
       if (!token || typeof token !== 'string') {
@@ -150,11 +147,7 @@ class CookieUtils {
     if (typeof window === "undefined") return
     
     try {
-      const isHttps = window.location.protocol === "https:"
-      const secureAttr = isHttps ? "secure; " : ""
-      const sameSite = isHttps ? AUTH_CONSTANTS.SECURE_SAME_SITE : AUTH_CONSTANTS.INSECURE_SAME_SITE
-      
-      document.cookie = `${name}=${value}; path=${AUTH_CONSTANTS.COOKIE_PATH}; max-age=${maxAge}; ${secureAttr}samesite=${sameSite}`
+        setCookie(name, value, maxAge, AUTH_CONSTANTS.COOKIE_PATH)
     } catch (error) {
       throw new TokenError(`Failed to set cookie: ${error}`, 'cookie_set_error')
     }
@@ -166,10 +159,7 @@ class CookieUtils {
   static getCookie(name: string): string | null {
     if (typeof window === "undefined") return null
     
-    const cookie = document.cookie
-      .split("; ")
-      .find(row => row.startsWith(`${name}=`))
-      ?.split("=")[1]
+    const cookie = getCookie(name)
     
     return cookie || null
   }
@@ -179,13 +169,8 @@ class CookieUtils {
    */
   static removeCookie(name: string): void {
     if (typeof window === "undefined") return
-    
     try {
-      const isHttps = window.location.protocol === "https:"
-      const secureAttr = isHttps ? "secure; " : ""
-      const sameSite = isHttps ? AUTH_CONSTANTS.SECURE_SAME_SITE : AUTH_CONSTANTS.INSECURE_SAME_SITE
-      
-      document.cookie = `${name}=; path=${AUTH_CONSTANTS.COOKIE_PATH}; max-age=0; ${secureAttr}samesite=${sameSite}`
+      removeCookie(name, AUTH_CONSTANTS.COOKIE_PATH)
     } catch (error) {
       throw new TokenError(`Failed to remove cookie: ${error}`, 'cookie_remove_error')
     }
@@ -242,7 +227,6 @@ class AuthService {
         { email, otp } as VerifyOTPRequest
       )
       
-      
       if (!response.status) {
         throw new AuthError(response.message || "Verify OTP failed", 'VERIFY_OTP_FAILED', 'verify_otp_error')
       }
@@ -253,6 +237,18 @@ class AuthService {
       this.handleAuthError(error, 'verify_otp_error')
     }
   }
+
+  /**
+   * Changes password after otp verification
+   */
+  async resetPassword(newPassword: string, confirmPassword: string, resetToken: string, email: string): Promise<void> {
+    try {
+      await apiClient.post<void>(AUTH_ENDPOINTS.RESET_PASSWORD, { newPassword, confirmPassword, resetToken, email })
+    } catch (error) {
+      this.handleAuthError(error, 'reset_password_error')
+    }
+  }
+
 
   /**
    * Authenticates user with email and password
